@@ -1,4 +1,5 @@
-import warnings, os
+#@title オルカン／TOPIX推移と近似線（強化版）
+import warnings
 warnings.filterwarnings('ignore')
 
 import streamlit as st
@@ -8,14 +9,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from datetime import datetime, timedelta
+from matplotlib import font_manager
+import urllib.request
+import os
 
-try:
-    import japanize_matplotlib
-except ImportError:
-    os.system("pip install japanize-matplotlib -q")
-    import japanize_matplotlib
+# 日本語フォント設定
+font_path = "/tmp/NotoSansJP.ttf"
+if not os.path.exists(font_path):
+    urllib.request.urlretrieve(
+        "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf",
+        font_path
+    )
+font_manager.fontManager.addfont(font_path)
+plt.rcParams['font.family'] = font_manager.FontProperties(fname=font_path).get_name()
 
-# --- ページ設定 ---
 st.set_page_config(page_title="市場指標チャート（強化版）", layout="wide")
 st.title("📈 日米主要指標・回帰分析（強化版）")
 
@@ -25,7 +32,6 @@ TICKER_MAP = {
     "ドル円 (為替)":       "JPY=X"
 }
 
-# --- サイドバー操作盤 ---
 st.sidebar.header("🎛️ 操作パネル")
 銘柄選択 = st.sidebar.selectbox("銘柄選択", list(TICKER_MAP.keys()))
 表示期間_日 = st.sidebar.slider("表示期間（日）", min_value=30, max_value=1000, value=180, step=10)
@@ -97,26 +103,26 @@ def run_analysis(label, days):
     else:
         judgment, j_color = "⬜ 中立圏",          "gray"
 
-    # --- メトリクス表示 ---
     st.subheader(f"【{label}】{days}日間・回帰分析")
     col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("現在値",     f"{current_val:,.1f}円")
-    col2.metric("回帰値",     f"{theory_val:,.1f}円")
-    col3.metric("乖離率",     f"{diff_pct:+.2f}%")
-    col4.metric("σ水準",      f"{sigma_level:+.2f}σ")
-    col5.metric("RSI(14)",    f"{rsi_now:.1f}")
+    col1.metric("現在値",  f"{current_val:,.1f}円")
+    col2.metric("回帰値",  f"{theory_val:,.1f}円")
+    col3.metric("乖離率",  f"{diff_pct:+.2f}%")
+    col4.metric("σ水準",   f"{sigma_level:+.2f}σ")
+    col5.metric("RSI(14)", f"{rsi_now:.1f}")
 
-    st.markdown(f"**パーセンタイル:** {percentile:.0f}%　｜　"
-                f"**データ日:** {df_plot.index[-1].strftime('%m/%d')} ※前営業日終値　｜　"
-                f"**判定:** :{j_color}[{judgment}]")
+    st.markdown(
+        f"**パーセンタイル:** {percentile:.0f}%　｜　"
+        f"**データ日:** {df_plot.index[-1].strftime('%m/%d')} ※前営業日終値　｜　"
+        f"**判定:** :{j_color}[{judgment}]"
+    )
 
-    # --- グラフ描画 ---
     fig = plt.figure(figsize=(14, 9))
     gs  = gridspec.GridSpec(3, 1, height_ratios=[3, 1, 1], hspace=0.08)
 
     ax1 = fig.add_subplot(gs[0])
-    ax1.plot(df_plot.index, y,               label='実勢',   color='tab:blue',  linewidth=2)
-    ax1.plot(df_plot.index, regression_line, label='回帰線', color='tab:red',   linestyle='--', alpha=0.8, linewidth=1.5)
+    ax1.plot(df_plot.index, y,               label='実勢',   color='tab:blue', linewidth=2)
+    ax1.plot(df_plot.index, regression_line, label='回帰線', color='tab:red',  linestyle='--', alpha=0.8, linewidth=1.5)
     ax1.fill_between(df_plot.index, regression_line - sigma,   regression_line + sigma,   alpha=0.12, color='orange', label='±1σ')
     ax1.fill_between(df_plot.index, regression_line - 2*sigma, regression_line + 2*sigma, alpha=0.07, color='orange', label='±2σ')
     if ma25.notna().sum() > 0:
